@@ -14,11 +14,11 @@ server.listen(port, () => {
 app.use(express.static(path.join(__dirname, 'public')));
 
 //chatRoom
-var numUser = 0;
+var numUsers = 0;
 
 //주소창에 접속하면
 io.on('connection', (socket) => {
-  var addUser = false;
+  var addedUser = false;
   console.log(socket.id);
   //Client로부터 “new message”라는 이벤트 수신할 시, data 파라미터와 함께 Callback을 받습니다.
   socket.on('new message', (data) => {
@@ -27,6 +27,49 @@ io.on('connection', (socket) => {
       message:data
     });
   });
-  //when the client emits 'new message', this listens and excutes
 
+  //유저 추가됬다고 받음
+  socket.on('add user', (username) => {
+      if (addedUser) return;
+
+      //we store the username in the socket session for this client
+      socket.username = username;
+      console.log(socket.username);
+      ++numUsers;
+      addedUser = true;
+      socket.emit('login', {
+          numUsers: numUsers
+      });
+
+      //나빼고 모든 사람에게
+      socket.broadcast.emit('user joined', {
+          username: socket.username,
+          numUsers: numUsers
+      });
+  });
+
+    //타이핑하는 사람 보내기
+  socket.on('typing', () => {
+      socket.broadcast.emit('typing', {
+          username:socket.username
+      });
+  });
+
+  socket.on('stop typing', () => {
+      socket.broadcast.emit('stop typing', {
+        username: socket.username
+      });
+  });
+  socket.on('disconnect', () => {
+      if(addedUser) {
+          --numUsers;
+          console.log(socket.username);
+          socket.broadcast.emit('user left',{
+              username: socket.username,
+              numUsers: numUsers
+          });
+      }
+  })
 });
+
+

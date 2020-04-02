@@ -32,13 +32,13 @@ window.onload = function(){
     } else {
       message += "there are " + data.numUsers + " participants";
     }
-    console.log(message);
+    log(message);
   }
 
   //로그인
   socket.on('login', (data) => {
     connected = true;
-    var message = "Welcome to Socket.IO Chat - ";
+    var message = "socket IO 채팅에 오셨네엽!";
     log(message, {
       prepend: true
     });
@@ -54,14 +54,18 @@ window.onload = function(){
         socket.emit('stop typing');
         typing = false;
       } else {
+        console.log('Enter else');
         setUsername();
       }
     }
   }
 
   const sendMessage = () => {
+
     //메세지 값
     var message = inputMessage.value;
+    console.log('message',message);
+    console.log('connected',connected);
     //Prevent markup from being injected into the message
 
     //if there is a non-empty message and a socket connetion
@@ -95,19 +99,113 @@ window.onload = function(){
       currentInput = inputMessage.focus();
       // inputMessage.style.display = 'block';
       // currentInput = inputMessage.focus();
+
+      //Tell the server your username
+      socket.emit('add user', username);
+    }
+  }
+  //타이핑 메시지 얻기
+  const getTypingMessages = (data) => {
+      console.log('겟타이핑메세지',data);
+    // console.log(document.querySelector('.typing.message'));
+    // Array.prototpy
+
+
+  }
+  const getUsernameColor = (username) => {
+    var hash = 7;
+    for(var i = 0; i < username.length; i++) {
+      hash = username.charCodeAt(i) + (hash << 5) - hash;
     }
 
-    //Tell the server your username
-    socket.emit('add user', username);
-
+    //calculate color
+    var index = Math.abs(hash % COLORS.length);
+    console.log('색깔은?',COLORS[index]);
+    return COLORS[index];
   }
 
   //Adds the visual chat message to the message list
   const addChatMessage = (data, options) => {
-    //Don't fade the message in if there is an 'X was typing'
-    console.log('addChatMessage',data);
+    console.log('데탸',data);
+    var typingMessages = getTypingMessages(data);
+    console.log('탸핑', typingMessages);
+    var hoho = [data];
+    var typingMessages = document.createElement('div');
+    hoho.filter( jayeon => {
+      typingMessages.classList.add('typing');
+      typingMessages.classList.add('message');
+      typingMessages.innerText = jayeon.username;
+    });
+
+    options = options || {};
+    if(typingMessages.length !== 0) {
+      options.fade = false;
+      typingMessages.remove();
+    }
+
+    var usernameDiv = document.createElement('span');
+    usernameDiv.classList.add('username');
+    usernameDiv.style.color = getUsernameColor(data.username);
+    usernameDiv.innerText = data.username+' : ';
+    var messageBodyDiv = document.createElement('span');
+    messageBodyDiv.classList.add('messageBody');
+    messageBodyDiv.innerText = data.message;
+
+    // var typingClass = data.typing ? 'typing' : '';
+    var messageDiv = document.createElement('li');
+    messageDiv.classList.add('message');
+    // messageDiv.innerText = data.username;
+    // messageBodyDiv.classList.add(typingClass);
+    messageDiv.append(usernameDiv, messageBodyDiv);
+
+
+    addMessageElement(messageDiv, options);
+
   }
 
+  //로그메시지
+  const log = (message, options) => {
+    var el = document.createElement('li');
+    el.classList.add('log');
+    el.innerHTML = message;
+    addMessageElement(el, options);
+  }
+
+  const addChatTyping = (data) => {
+    data.typing = true;
+    data.message = 'is typing';
+    addChatMessage(data);
+  }
+
+  const addMessageElement = (el, options) => {
+    var elTwo = el;
+
+    //기본옵션 셋업
+    if(!options) {
+      options= {};
+    }
+    if(typeof options.fade === 'undefined'){
+      options.fade = true;
+    }
+    if(typeof options.prepend == 'undefined') {
+      options.prepend = false;
+    }
+
+    //옵션 적용
+    if(options.fade) {
+      elTwo.classList.add('show');
+      elTwo.classList.remove('hide');
+    }
+    if(options.prepend) {
+      //메세지 나오는거 전에 추가
+      messages.prepend(elTwo);
+    } else {
+      messages.append(elTwo);
+    }
+    console.log('options', options);
+    console.log('messages', messages);
+    messages.scrollTop = messages.scrollHeight;
+  }
   loginPage.onclick = () => {
     inputMessage.focus();
   }
@@ -115,28 +213,24 @@ window.onload = function(){
   inputMessage.onclick = () => {
     inputMessage.focus();
   }
-  //
-  // usernameInput.keydown(event => {
-  //   console.log('keydown', event);
-  //Auto-focus the current input when a key is typed
-  // if(!(event.ctrlKey || event.metaKey || event.altKey)){
-  //   currentInput.focus();
-  // }
-  // //When the client hits ENTER on theirkeyboard
-  // if(event.which === 13) {
-  //   if(username) {
-  //
-  //   }
-  // }
-
-  // })
 
   socket.on('new message', (data) => {
       addChatMessage(data);
   });
 
-  socket.on('ksh', (data) => {
-    console.log(data);
-    // addChatMessage(data);
+  socket.on('typing', (data) => {
+    addChatTyping(data);
   });
+
+  socket.on('user joined', (data) => {
+    log(data.username + ' joined');
+    addParticipantsMessage(data);
+  })
+
+  socket.on('disconnect', () => {
+    log('you have been disconnected');
+  });
+
+
 };
+
